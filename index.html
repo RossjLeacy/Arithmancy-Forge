@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARITHMANCY FORGE 3.1: THE GAUNTLET</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { font-family: 'Quicksand', sans-serif; background: #020617; color: white; overflow: hidden; }
+        .cyber-font { font-family: 'Orbitron', sans-serif; }
+        .monster-box { background: radial-gradient(circle, rgba(239,68,68,0.2) 0%, transparent 80%); border: 1px solid rgba(255,255,255,0.05); }
+        .monster-img { filter: drop-shadow(0 0 30px #ef4444); transform: scale(1.1); }
+        .mana-bar { height: 100%; transition: height 0.4s ease; background: linear-gradient(to top, #a855f7, #3b82f6); }
+        .shake { animation: shake 0.5s both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-6px, 0, 0); } }
+        .num-btn { background: #1e293b; border: 2px solid #334155; transition: 0.2s; }
+        .num-btn:disabled { opacity: 0.1; }
+        .spell-btn:disabled { opacity: 0.2; filter: grayscale(1); cursor: not-allowed; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen" onclick="unlockAudio()">
+
+    <audio id="bg-music" loop>
+        <source src="track.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="intro-screen" class="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+        <h1 class="cyber-font text-6xl text-orange-500 mb-2 italic tracking-tighter">ARITHMANCY FORGE</h1>
+        <div class="bg-slate-900/50 p-8 rounded-3xl border border-slate-700 w-full max-w-xl backdrop-blur-md">
+            <input type="text" id="hero-name" placeholder="HERO NAME..." class="w-full bg-slate-800 border-2 border-slate-600 p-4 rounded-xl mb-6 text-center cyber-font text-orange-400 focus:border-orange-500 outline-none">
+            <div class="grid grid-cols-2 gap-3 mb-8 text-[10px] cyber-font">
+                <button onclick="setDiff(60, 'easy', this)" class="diff-btn border border-slate-700 p-3 rounded-lg hover:border-blue-400">EASY (60s)</button>
+                <button onclick="setDiff(50, 'med', this)" class="diff-btn border border-orange-500 p-3 rounded-lg text-orange-500">MEDIUM (50s)</button>
+                <button onclick="setDiff(30, 'hard', this)" class="diff-btn border border-slate-700 p-3 rounded-lg hover:border-red-400">HARD (30s)</button>
+                <button onclick="setDiff(20, 'extreme', this)" class="diff-btn border border-slate-700 p-3 rounded-lg hover:border-purple-400">EXTREME (20s)</button>
+            </div>
+            <button onclick="startGame()" class="w-full bg-orange-600 p-5 rounded-2xl cyber-font text-xl shadow-lg">BEGIN JOURNEY</button>
+        </div>
+    </div>
+
+    <div id="game-ui" class="hidden w-full max-w-7xl grid grid-cols-12 gap-6 p-4">
+        <div class="col-span-3 flex flex-col items-center justify-center monster-box rounded-3xl p-6">
+            <img id="monster-img" src="" class="w-full h-auto monster-img mb-6">
+            <h3 id="monster-name" class="cyber-font text-red-500 text-center mb-1 text-sm tracking-widest">---</h3>
+            <div class="h-3 bg-slate-800 rounded-full w-full overflow-hidden border border-slate-700 mb-1">
+                <div id="monster-hp-fill" class="h-full bg-red-600 transition-all duration-500" style="width: 100%;"></div>
+            </div>
+            <p id="monster-hp-text" class="text-[10px] text-center text-slate-400 cyber-font">HP: 1000 / 1000</p>
+        </div>
+
+        <div class="col-span-6 flex flex-col items-center">
+            <h2 id="region-name" class="cyber-font text-2xl text-yellow-500">---</h2>
+            <div id="timer-text" class="text-5xl cyber-font mt-1 mb-4">60</div>
+            <div class="bg-slate-900/80 p-8 rounded-3xl border-2 border-slate-700 w-full text-center mb-4 relative">
+                <div class="absolute top-0 left-0 w-full h-1 bg-slate-800"><div id="timer-bar" class="h-full bg-orange-500 w-full transition-all"></div></div>
+                <div id="target-num" class="text-8xl cyber-font text-orange-500 tracking-tighter">---</div>
+            </div>
+            <div class="bg-slate-950 p-4 rounded-xl w-full mb-4 border border-blue-900/30 text-center">
+                <div id="equation-buffer" class="text-3xl min-h-[45px] cyber-font text-blue-400"></div>
+                <div id="result-preview" class="text-xs text-slate-600 mt-2 h-4 uppercase"></div>
+            </div>
+            <div id="number-grid" class="grid grid-cols-6 gap-2 mb-4 w-full"></div>
+            <div class="flex gap-2 w-full justify-center">
+                <button onclick="addOp('+')" class="bg-slate-800 w-12 h-12 rounded-lg font-bold border border-slate-700">+</button>
+                <button onclick="addOp('-')" class="bg-slate-800 w-12 h-12 rounded-lg font-bold border border-slate-700">-</button>
+                <button onclick="addOp('*')" class="bg-slate-800 w-12 h-12 rounded-lg font-bold border border-slate-700">×</button>
+                <button onclick="addOp('/')" class="bg-slate-800 w-12 h-12 rounded-lg font-bold border border-slate-700">÷</button>
+                <button onclick="clearBuffer()" class="bg-red-900/30 px-4 rounded-lg cyber-font text-[10px]">CLEAR</button>
+                <button onclick="checkAttack()" class="bg-orange-600 px-10 rounded-lg cyber-font text-sm">ATTACK</button>
+            </div>
+        </div>
+
+        <div class="col-span-3 flex flex-col gap-4">
+            <div class="bg-slate-900/80 p-4 rounded-3xl border border-slate-700">
+                <div class="flex justify-between items-center mb-2 text-[9px] cyber-font">
+                    <button id="audio-toggle" onclick="toggleAudio()" class="text-green-500">AUDIO: ON</button>
+                    <span>VOL</span>
+                </div>
+                <input type="range" id="vol-slider" min="0" max="1" step="0.1" value="0.5" class="w-full">
+            </div>
+            <div class="bg-slate-900/80 p-4 rounded-3xl flex flex-col items-center">
+                <div class="h-24 w-4 bg-slate-800 rounded-full relative overflow-hidden flex flex-col-reverse">
+                    <div id="mana-fill" class="mana-bar w-full" style="height: 0%;"></div>
+                </div>
+                <p id="mana-text" class="text-[9px] mt-2 text-slate-500 cyber-font uppercase">0 / 3 Charges</p>
+            </div>
+            <div class="flex flex-col gap-2">
+                <button id="spell-lightning" onclick="castSpell('lightning')" class="spell-btn bg-slate-900 p-3 rounded-2xl border border-blue-500 text-[9px] cyber-font text-blue-400">LIGHTNING</button>
+                <button id="spell-time" onclick="castSpell('time')" class="spell-btn bg-slate-900 p-3 rounded-2xl border border-green-500 text-[9px] cyber-font text-green-400">TIME SLOW</button>
+                <button id="spell-heal" onclick="castSpell('heal')" class="spell-btn bg-slate-900 p-3 rounded-2xl border border-red-500 text-[9px] cyber-font text-red-400">HEAL</button>
+            </div>
+            <div id="player-hearts" class="mt-auto text-center text-xl">❤️❤️❤️</div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            heroName: "HERO", difficulty: 60, diffMode: 'easy', regionIdx: 0,
+            monsterHP: 1000, monsterMaxHP: 1000, target: 0, timer: 60,
+            activeNumbers: [], buffer: [], usedIndices: [], hearts: 3, mana: 0, audioOn: true
+        };
+
+        const regions = [
+            { name: "THE EAST", range: [100, 300], hp: 1000, seed: "Spook" },
+            { name: "THE SOUTH", range: [300, 600], hp: 1500, seed: "Shadow" },
+            { name: "THE WEST", range: [600, 900], hp: 2000, seed: "Behemoth" },
+            { name: "THE NORTH", range: [900, 1500], hp: 3000, seed: "Elder" }
+        ];
+
+        let audioCtx;
+        const music = document.getElementById('bg-music');
+
+        function unlockAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (gameState.audioOn) music.play().catch(() => {});
+        }
+
+        function toggleAudio() {
+            gameState.audioOn = !gameState.audioOn;
+            document.getElementById('audio-toggle').innerText = gameState.audioOn ? "AUDIO: ON" : "AUDIO: OFF";
+            gameState.audioOn ? music.play() : music.pause();
+        }
+
+        document.getElementById('vol-slider').oninput = (e) => music.volume = e.target.value;
+
+        function playSfx(f, type="sine", d=0.2) {
+            if(!gameState.audioOn || !audioCtx) return;
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.type = type; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
+        }
+
+        function setDiff(val, mode, btn) {
+            gameState.difficulty = val; gameState.diffMode = mode;
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('text-orange-500', 'border-orange-500'));
+            btn.classList.add('text-orange-500', 'border-orange-500');
+        }
+
+        function startGame() {
+            const n = document.getElementById('hero-name').value;
+            if(n) gameState.heroName = n.toUpperCase();
+            document.getElementById('intro-screen').classList.add('hidden');
+            document.getElementById('game-ui').classList.remove('hidden');
+            initLevel();
+        }
+
+        function initLevel() {
+            const r = regions[gameState.regionIdx];
+            gameState.monsterMaxHP = r.hp; gameState.monsterHP = r.hp;
+            // Updated PNG Monster link
+            document.getElementById('monster-img').src = `https://api.dicebear.com/7.x/miniavs/png?seed=${r.seed}&backgroundColor=transparent`;
+            document.getElementById('monster-name').innerText = r.name + " WARDEN";
+            document.getElementById('region-name').innerText = r.name;
+            updateMonsterUI(); updateManaUI(); newRound();
+        }
+
+        function newRound() {
+            const r = regions[gameState.regionIdx];
+            gameState.target = Math.floor(Math.random() * (r.range[1] - r.range[0])) + r.range[0];
+            document.getElementById('target-num').innerText = gameState.target;
+            const bigs = [25, 50, 75, 100].sort(() => Math.random() - 0.5);
+            const smalls = [1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10].sort(() => Math.random() - 0.5);
+            gameState.activeNumbers = [bigs[0], bigs[1], smalls[0], smalls[1], smalls[2], smalls[3]];
+            renderNumbers(); clearBuffer(); startTimer();
+        }
+
+        function renderNumbers() {
+            const grid = document.getElementById('number-grid'); grid.innerHTML = '';
+            gameState.activeNumbers.forEach((n, i) => {
+                const b = document.createElement('button');
+                b.className = `num-btn p-3 rounded-xl cyber-font ${gameState.usedIndices.includes(i) ? 'opacity-10' : ''}`;
+                b.innerText = n; b.disabled = gameState.usedIndices.includes(i);
+                b.onclick = () => {
+                    gameState.buffer.push(n); gameState.usedIndices.push(i);
+                    playSfx(440); renderNumbers(); updateEquation();
+                };
+                grid.appendChild(b);
+            });
+        }
+
+        function updateEquation() {
+            const eq = gameState.buffer.join(' ');
+            document.getElementById('equation-buffer').innerText = eq;
+            const prev = document.getElementById('result-preview');
+            if (gameState.diffMode === 'easy' || gameState.diffMode === 'med') {
+                try { 
+                    const res = eval(eq);
+                    prev.innerText = res ? `PROJECTED STRIKE: ${Math.floor(res)}` : "";
+                } catch(e) { prev.innerText = ""; }
+            } else { prev.innerText = "MENTAL MATH ACTIVE"; }
+        }
+
+        function startTimer() {
+            clearInterval(gameState.timerInterval);
+            gameState.timer = gameState.difficulty;
+            gameState.timerInterval = setInterval(() => {
+                gameState.timer -= 0.1;
+                document.getElementById('timer-text').innerText = Math.ceil(gameState.timer);
+                document.getElementById('timer-bar').style.width = (gameState.timer / gameState.difficulty * 100) + "%";
+                if(gameState.timer <= 0) { clearInterval(gameState.timerInterval); monsterAttack(); }
+            }, 100);
+        }
+
+        function checkAttack() {
+            clearInterval(gameState.timerInterval);
+            try {
+                let result = Math.floor(eval(gameState.buffer.join('')));
+                let diff = Math.abs(gameState.target - result);
+                if (diff === 0) { applyDamage(gameState.target, true); }
+                else if (diff <= 5) { applyDamage(Math.floor(gameState.target / 2), false); }
+                else { monsterAttack(); }
+            } catch(e) { monsterAttack(); }
+        }
+
+        function applyDamage(dmg, isPerfect) {
+            gameState.monsterHP -= dmg;
+            if(isPerfect) { 
+                gameState.mana = Math.min(gameState.mana + 1, 3);
+                confetti(); playSfx(880, "sine", 0.5); 
+            }
+            updateManaUI();
+            document.getElementById('monster-img').classList.add('shake');
+            setTimeout(() => document.getElementById('monster-img').classList.remove('shake'), 500);
+            if(gameState.monsterHP <= 0) { 
+                gameState.regionIdx++;
+                if(gameState.regionIdx >= regions.length) { alert("GAUNTLET CONQUERED!"); location.reload(); }
+                else { initLevel(); }
+            } else { updateMonsterUI(); newRound(); }
+        }
+
+        function monsterAttack() {
+            gameState.hearts--;
+            playSfx(100, "sawtooth", 0.6);
+            document.getElementById('player-hearts').innerText = "❤️".repeat(gameState.hearts);
+            if(gameState.hearts <= 0) { alert("HERO DEFEATED!"); location.reload(); }
+            else { newRound(); }
+        }
+
+        function updateMonsterUI() {
+            const perc = (gameState.monsterHP / gameState.monsterMaxHP) * 100;
+            document.getElementById('monster-hp-fill').style.width = perc + "%";
+            document.getElementById('monster-hp-text').innerText = `HP: ${gameState.monsterHP} / ${gameState.monsterMaxHP}`;
+        }
+
+        function updateManaUI() {
+            document.getElementById('mana-fill').style.height = (gameState.mana / 3 * 100) + "%";
+            document.getElementById('mana-text').innerText = `${gameState.mana} / 3 Charges`;
+            document.querySelectorAll('.spell-btn').forEach(b => b.disabled = (gameState.mana < 3));
+        }
+
+        function castSpell(type) {
+            if(gameState.mana < 3) return;
+            gameState.mana = 0; updateManaUI();
+            if(type === 'lightning') { gameState.monsterHP -= 100; updateMonsterUI(); playSfx(1200, "square"); }
+            else if(type === 'time') { gameState.timer = gameState.difficulty; startTimer(); playSfx(600); }
+            else if(type === 'heal') { gameState.hearts = Math.min(gameState.hearts + 1, 3); document.getElementById('player-hearts').innerText = "❤️".repeat(gameState.hearts); playSfx(800); }
+        }
+
+        function clearBuffer() { gameState.buffer = []; gameState.usedIndices = []; renderNumbers(); updateEquation(); }
+        function addOp(op) { if(gameState.buffer.length > 0 && !isNaN(gameState.buffer[gameState.buffer.length-1])) { gameState.buffer.push(op); updateEquation(); } }
+    </script>
+</body>
+</html>
